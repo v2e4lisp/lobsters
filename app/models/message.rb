@@ -11,8 +11,6 @@ class Message < ActiveRecord::Base
 
   attr_accessor :recipient_username
 
-  attr_accessible :recipient_username, :subject, :body
-
   validates_length_of :subject, :in => 1..150
   validates_length_of :body, :maximum => (64 * 1024)
 
@@ -45,20 +43,14 @@ class Message < ActiveRecord::Base
       end
     end
 
-    if self.recipient.pushover_messages? &&
-    self.recipient.pushover_user_key.present?
-      begin
-        Pushover.push(self.recipient.pushover_user_key,
-          self.recipient.pushover_device, {
-          :title => "#{Rails.application.name} message from " <<
-            "#{self.author.username}: #{self.subject}",
-          :message => self.plaintext_body,
-          :url => self.url,
-          :url_title => "Reply to #{self.author.username}",
-        })
-      rescue => e
-        Rails.logger.error "error sending to pushover: #{e}"
-      end
+    if self.recipient.pushover_messages?
+      self.recipient.pushover!({
+        :title => "#{Rails.application.name} message from " <<
+          "#{self.author.username}: #{self.subject}",
+        :message => self.plaintext_body,
+        :url => self.url,
+        :url_title => "Reply to #{self.author.username}",
+      })
     end
   end
 

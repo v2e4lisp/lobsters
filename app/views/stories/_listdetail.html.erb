@@ -1,18 +1,15 @@
 <li id="story_<%= story.short_id %>" data-shortid="<%= story.short_id %>"
-class="story <%= story.vote == 1 ? "upvoted" : (story.vote == -1 ?
-"downvoted" : "") %> <%= story.is_expired? ? "expired" : "" %>">
+class="story <%= story.vote == 1 ? "upvoted" : "" %> <%= story.vote == -1 ?
+"downvoted" : "" %> <%= story.vote == 0 ? "hidden" : "" %> <%= story.is_expired? ?
+"expired" : "" %>">
+<div class="story_liner">
   <div class="voters">
     <% if @user %>
       <a class="upvoter"></a>
     <% else %>
       <%= link_to "", login_url, :class => "upvoter" %>
     <% end %>
-    <div class="score"><%= story.upvotes - story.downvotes %></div>
-    <% if @user && @user.can_downvote? %>
-      <a class="downvoter"></a>
-    <% else %>
-      <span class="downvoter downvoter_stub"></span>
-    <% end %>
+    <div class="score"><%= story.score %></div>
   </div>
   <div class="details">
     <span class="link">
@@ -66,19 +63,32 @@ class="story <%= story.vote == 1 ? "upvoted" : (story.vote == -1 ?
             <% end %>
           <% end %>
         <% end %>
-        <% if !story.is_gone? && (@user || story.comments_count > 0) %>
-          |
-          <a href="<%= story.comments_url %>"><%= story.comments_count == 0 ?
-            "discuss" : "#{story.comments_count} comment" <<
-            (story.comments_count == 1 ? "" : "s") %></a>
-        <% end %>
-
-        <% if defined?(single_story) && single_story %>
-          <% if story.downvotes > 0 %>
-            | <%= story.vote_summary.downcase %>
+        <% if !story.is_gone? && @user %>
+          <% if story.vote == 0 %>
+            | <%= link_to "unhide", story_unhide_url(story.short_id),
+              :class => "hider" %>
+          <% else %>
+            | <%= link_to "hide", story_hide_url(story.short_id),
+              :class => "hider" %>
           <% end %>
+          <% if defined?(single_story) && single_story && story.hider_count > 0 %>
+            (hidden by <%= pluralize(story.hider_count, "user") %>)
+          <% end %>
+        <% end %>
+        <% if !story.is_gone? && (@user || story.comments_count > 0) %>
+          <span class="comments_label">
+            |
+            <a href="<%= story.comments_url %>"><%= story.comments_count == 0 ?
+              "discuss" : "#{story.comments_count} comment" <<
+              (story.comments_count == 1 ? "" : "s") %></a>
+          </span>
         <% end %>
       <% end %>
     </div>
   </div>
+</div>
+<div class="mobile_comments <%= story.comments_count == 0 ? "zero" : "" %>"
+style="display: none;">
+  <a href="<%= story.comments_url %>"><%= story.comments_count %></a>
+</div>
 </li>

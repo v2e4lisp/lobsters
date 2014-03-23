@@ -60,7 +60,7 @@ a.tag_is_media {
 	border-color: #a26dc8;
 }
 
-a.tag_ask, a.tag_project, a.tag_interview {
+a.tag_ask, a.tag_show, a.tag_interview {
 	background-color: #f9ddde;
 	border-color: #f0b2b8;
 }
@@ -132,13 +132,6 @@ input[type="submit"]:focus,
 button:focus {
 	border-color: #888;
 	outline: 1px solid #888;
-}
-
-body.mobile input,
-body.mobile button,
-body.mobile select,
-body.mobile textarea {
-	max-width: 275px;
 }
 
 /* these must be separate */
@@ -358,10 +351,6 @@ ol.comments.comments1 {
 	border-left-color: transparent;
 }
 
-ol.comments.preview {
-	margin: 1em 0 0 -15px;
-	padding: 0;
-}
 ol.comments.collapsed ol,
 ol.comments.collapsed li {
 	display: none;
@@ -379,7 +368,6 @@ ol.search_results li.story {
 
 div.voters {
 	float: left;
-	margin-top: -4px;
 	width: 40px;
 }
 
@@ -406,7 +394,7 @@ div.voters .downvoter {
 }
 
 div.voters .upvoter:hover,
-li.upvoted div.voters .upvoter {
+.upvoted div.voters .upvoter {
 	border-bottom-color: #ac130d;
 }
 
@@ -423,7 +411,7 @@ div.voters .downvoter {
 	border-top-width: 9px;
 }
 div.voters .downvoter:hover,
-li.downvoted div.voters .downvoter {
+.downvoted div.voters .downvoter {
 	border-top-color: gray;
 }
 
@@ -431,44 +419,47 @@ div.voters .downvoter.downvoter_stub {
 	border-color: transparent;
 }
 
-li.story,
-li.comment {
+li.story {
+	clear: both;
+}
+li.story div.story_liner {
+	padding-top: 0.3em;
+	padding-bottom: 0.3em;
+}
+.comment {
 	clear: both;
 	padding-top: 0.4em;
 	padding-bottom: 0.4em;
 }
-li.comment {
-	padding-top: 0.5em;
-	padding-bottom: 0.5em;
-}
 
-li.comment a {
+.comment a {
 	color: #666;
 }
 
-ol.stories li:first-child {
+ol.stories li:first-child div.story_liner {
 	padding-top: 0.5em;
 }
 li div.details {
 	padding-top: 0.1em;
 }
 
-li.negative {
+.negative {
 	opacity: 0.7;
 	color: gray !important;
 }
-li.negative_3 {
+.negative_3 {
 	opacity: 0.4;
 }
-li.negative_5 {
+.negative_5 {
 	opacity: 0.3;
 }
-li.negative_7 {
+.negative_7 {
 	opacity: 0.2;
 }
 
-li.comment.highlighted {
-	background-color: #ffffbf;
+.comment.highlighted {
+	background-color: #ffffef;
+	border-radius: 20px;
 }
 
 li .link {
@@ -507,16 +498,22 @@ li .byline a {
 	color: #888;
 	text-decoration: none;
 }
-.new_user,
+span.new_user, a.new_user,
 li .byline a.new_user {
 	color: green;
 }
-.banned_user,
-li .byline a.banned_user {
+span.inactive_user, a.inactive_user,
+li .byline a.inactive_user {
 	color: gray;
 	text-decoration: line-through;
 }
 
+li.story.hidden {
+	opacity: 0.25;
+}
+ol.show_hidden li.story.hidden {
+	opacity: 1.0 !important;
+}
 
 li.story.expired {
 	opacity: 0.6;
@@ -532,7 +529,7 @@ div.story_content {
 }
 
 div.story_content {
-	margin-bottom: 3em;
+	margin-bottom: 1em;
 }
 
 div.morelink {
@@ -618,14 +615,6 @@ div.comment_actions a {
 	text-decoration: none;
 }
 
-div.comment_reply form {
-	padding-top: 1em;
-}
-
-div.comment_reply button.comment-post {
-	font-weight: bold;
-}
-
 a.pagelink {
 	border: 1px solid #ddd;
 	background-color: #fbfbfb;
@@ -689,6 +678,9 @@ div.markdown_help_label {
 	cursor: pointer;
 }
 
+.comment .preview {
+	padding-left: 25px;
+}
 
 div#story_preview {
 	margin-top: 2em;
@@ -717,8 +709,12 @@ div#story_box div.markdown_help_toggler {
 	width: 610px;
 }
 
-div.comment_form_container, div.comment_reply {
+div.comment_form_container {
 	max-width: 700px;
+}
+
+div.comment_form_container form {
+	margin-left: 15px;
 }
 
 ul.root {

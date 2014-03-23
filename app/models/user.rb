@@ -18,6 +18,7 @@ class User < ActiveRecord::Base
     :class_name => "User"
   belongs_to :banned_by_user,
     :class_name => "User"
+  has_many :invitations
 
   has_secure_password
 
@@ -35,11 +36,6 @@ class User < ActiveRecord::Base
     end
   end
 
-  attr_accessible :username, :email, :password, :password_confirmation,
-    :about, :email_replies, :pushover_replies, :pushover_user_key,
-    :pushover_device, :email_messages, :pushover_messages, :email_mentions,
-    :pushover_mentions, :mailing_list_enabled
-
   before_save :check_session_token
   before_validation :on => :create do
     self.create_rss_token
@@ -47,7 +43,18 @@ class User < ActiveRecord::Base
   end
 
   BANNED_USERNAMES = [ "admin", "administrator", "hostmaster", "mailer-daemon",
-    "postmaster", "root", "security", "support", "webmaster", ]
+    "postmaster", "root", "security", "support", "webmaster", "moderator",
+    "moderators", ]
+
+  # days old accounts are considered new for
+  NEW_USER_DAYS = 7
+
+  def self.recalculate_all_karmas!
+    User.all.each do |u|
+      u.karma = u.stories.map(&:score).sum + u.comments.map(&:score).sum
+      u.save!
+    end
+  end
 
   def as_json(options = {})
     h = super(:only => [
@@ -61,10 +68,8 @@ class User < ActiveRecord::Base
   end
 
   def avatar_url
-    "https://secure.gravatar.com/avatar/" <<
-      Digest::MD5.hexdigest(self.email.strip.downcase) << "?r=pg&d=" <<
-      CGI.escape(Rails.application.routes.url_helpers.root_url +
-      "images/1x1t.gif") << "&s=100"
+    "https://secure.gravatar.com/avatar/" +
+      Digest::MD5.hexdigest(self.email.strip.downcase) + "?r=pg&d=mm&s=100"
   end
 
   def average_karma
@@ -80,10 +85,7 @@ class User < ActiveRecord::Base
     self.banned_by_user_id = banner.id
     self.banned_reason = reason
 
-    self.session_token = nil
-    self.check_session_token
-
-    self.save!
+    self.delete!
 
     BanNotification.notify(self, banner, reason)
 
@@ -97,9 +99,22 @@ class User < ActiveRecord::Base
     true
   end
 
-  def can_downvote?
-    # TODO: maybe change this to require a certain level of karma
-    !is_new?
+  def can_downvote?(obj)
+    if is_new?
+      return false
+    elsif obj.is_a?(Story)
+      # user can unvote
+      return obj.vote == -1
+    elsif obj.is_a?(Comment)
+      if obj.is_downvotable?
+        return true
+      elsif obj.current_vote.try(:vote).to_i == -1
+        # user can unvote
+        return true
+      end
+    end
+
+    false
   end
 
   def check_session_token
@@ -124,6 +139,29 @@ class User < ActiveRecord::Base
     Keystore.value_for("user:#{self.id}:comments_posted").to_i
   end
 
+  def delete!
+    User.transaction do
+      self.comments.each{|c| c.delete_for_user(self) }
+
+      self.sent_messages.each do |m|
+        m.deleted_by_author = true
+        m.save
+      end
+      self.received_messages.each do |m|
+        m.deleted_by_recipient = true
+        m.save
+      end
+
+      self.invitations.destroy_all
+
+      self.session_token = nil
+      self.check_session_token
+
+      self.deleted_at = Time.now
+      self.save!
+    end
+  end
+
   def initiate_password_reset_for_ip(ip)
     self.password_reset_token = Utils.random_str(40)
     self.save!
@@ -131,12 +169,16 @@ class User < ActiveRecord::Base
     PasswordReset.password_reset_link(self, ip).deliver
   end
 
+  def is_active?
+    !(deleted_at? || is_banned?)
+  end
+
   def is_banned?
     banned_at?
   end
 
   def is_new?
-    Time.now - self.created_at <= 7.days
+    Time.now - self.created_at <= NEW_USER_DAYS.days
   end
 
   def linkified_about
@@ -146,7 +188,7 @@ class User < ActiveRecord::Base
   end
 
   def most_common_story_tag
-    Tag.joins(
+    Tag.active.joins(
       :stories
     ).where(
       :stories => { :user_id => self.id }
@@ -157,8 +199,16 @@ class User < ActiveRecord::Base
     ).first
   end
 
+  def pushover!(params)
+    if self.pushover_user_key.present?
+      Pushover.push(self.pushover_user_key, self.pushover_device,
+        params.merge({ :sound => self.pushover_sound.to_s }))
+    end
+  end
+
   def recent_threads(amount)
-    self.comments.order('created_at desc').limit(amount).uniq.pluck(:thread_id)
+    self.comments.group(:thread_id).order('MAX(created_at) DESC').limit(
+      amount).pluck(:thread_id)
   end
 
   def stories_submitted_count
@@ -181,7 +231,7 @@ class User < ActiveRecord::Base
   end
 
   def undeleted_sent_messages
-    sent_messages.where(:deleted_by_author => 0)
+    sent_messages.where(:deleted_by_author => false)
   end
 
   def unread_message_count
@@ -190,7 +240,7 @@ class User < ActiveRecord::Base
 
   def update_unread_message_count!
     Keystore.put("user:#{self.id}:unread_messages",
-      Message.where(:recipient_user_id => self.id,
-        :has_been_read => false).count)
+      Message.where("recipient_user_id = ? AND (has_been_read = ? AND " <<
+      "deleted_by_recipient = ?)", self.id, false, false).count)
   end
 end

@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20140112192936) do
+ActiveRecord::Schema.define(version: 20140221164400) do
 
   create_table "comments", force: true do |t|
     t.datetime "created_at",                                                                    null: false
@@ -107,6 +107,7 @@ ActiveRecord::Schema.define(version: 20140112192936) do
 
   add_index "stories", ["hotness"], name: "hotness_idx", using: :btree
   add_index "stories", ["is_expired", "is_moderated"], name: "is_idxes", using: :btree
+  add_index "stories", ["short_id"], name: "unique_short_id", unique: true, using: :btree
   add_index "stories", ["url"], name: "url", length: {"url"=>191}, using: :btree
 
   create_table "tag_filters", force: true do |t|
@@ -130,6 +131,7 @@ ActiveRecord::Schema.define(version: 20140112192936) do
     t.string  "description", limit: 100
     t.boolean "privileged",              default: false
     t.boolean "is_media",                default: false
+    t.boolean "inactive",                default: false
   end
 
   add_index "tags", ["tag"], name: "tag", unique: true, using: :btree
@@ -156,14 +158,16 @@ ActiveRecord::Schema.define(version: 20140112192936) do
     t.boolean  "pushover_mentions",                     default: false
     t.string   "rss_token",            limit: 75
     t.string   "mailing_list_token",   limit: 75
-    t.boolean  "mailing_list_enabled",                  default: false
+    t.integer  "mailing_list_mode",                     default: 0
     t.integer  "karma",                                 default: 0,     null: false
     t.datetime "banned_at"
     t.integer  "banned_by_user_id"
     t.string   "banned_reason",        limit: 200
+    t.datetime "deleted_at"
+    t.string   "pushover_sound"
   end
 
-  add_index "users", ["mailing_list_enabled"], name: "mailing_list_enabled", using: :btree
+  add_index "users", ["mailing_list_mode"], name: "mailing_list_enabled", using: :btree
   add_index "users", ["mailing_list_token"], name: "mailing_list_token", unique: true, using: :btree
   add_index "users", ["password_reset_token"], name: "password_reset_token", unique: true, using: :btree
   add_index "users", ["rss_token"], name: "rss_token", unique: true, using: :btree

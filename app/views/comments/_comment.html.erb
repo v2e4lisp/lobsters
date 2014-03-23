@@ -1,4 +1,4 @@
-<li id="comment_<%= comment.short_id %>" data-shortid="<%= comment.short_id %>"
+<div id="comment_<%= comment.short_id %>" data-shortid="<%= comment.short_id %>"
 class="comment <%= comment.current_vote ? (comment.current_vote[:vote] == 1 ?
 "upvoted" : "downvoted") : "" %>
   <%= comment.highlighted ? "highlighted" : "" %>
@@ -14,7 +14,7 @@ class="comment <%= comment.current_vote ? (comment.current_vote[:vote] == 1 ?
         <%= link_to "", login_url, :class => "upvoter" %>
       <% end %>
       <div class="score"><%= comment.score %></div>
-      <% if @user && @user.can_downvote? %>
+      <% if @user && @user.can_downvote?(comment) %>
         <a class="downvoter"></a>
       <% else %>
         <span class="downvoter downvoter_stub"></span>
@@ -29,23 +29,25 @@ class="comment <%= comment.current_vote ? (comment.current_vote[:vote] == 1 ?
         just now
       <% else %>
         <a href="/u/<%= comment.user.username %>"
-        <% if comment.user.is_banned? %>
-          class="banned_user"
+        <% if !comment.user.is_active? %>
+          class="inactive_user"
         <% elsif comment.user.is_new? %>
           class="new_user"
         <% end %>
         ><%= comment.user.username %></a>
 
-        <%= comment.has_been_edited?? "edited" : "" %>
+        <% if comment.has_been_edited? %>
+          edited
+        <% elsif comment.is_from_email? %>
+          e-mailed
+        <% end %>
         <%= raw(time_ago_in_words_label(comment.has_been_edited? ?
           comment.updated_at : comment.created_at).gsub(/^about /, "")) %> ago
-        <%= comment.is_from_email?? "via e-mail" : "" %>
       <% end %>
 
       <% if !comment.previewing %>
         |
-        <a href="<%= story.comments_url %>/comments/<%= comment.short_id
-          %>">link</a>
+        <a href="<%= comment.url %>">link</a>
 
         <% if comment.is_editable_by_user?(@user) %>
           |
@@ -60,8 +62,7 @@ class="comment <%= comment.current_vote ? (comment.current_vote[:vote] == 1 ?
           <a class="comment_deletor">delete</a>
         <% end %>
 
-        <% if @user && !story.is_gone? && !comment.is_gone? &&
-        !(defined?(show_story) && show_story) %>
+        <% if @user && !comment.story.is_gone? && !comment.is_gone? %>
             |
             <a class="comment_replier">reply</a>
         <% end %>
@@ -78,7 +79,7 @@ class="comment <%= comment.current_vote ? (comment.current_vote[:vote] == 1 ?
 
       <% if defined?(show_story) && show_story %>
         | on:
-        <a href="<%= story.comments_url %>"><%= story.title %></a>
+        <a href="<%= comment.story.comments_url %>"><%= comment.story.title %></a>
       <% end %>
     </div>
     <div class="comment_text">
@@ -92,7 +93,15 @@ class="comment <%= comment.current_vote ? (comment.current_vote[:vote] == 1 ?
         <%= raw comment.markeddown_comment %>
       <% end %>
     </div>
-
-    <div class="comment_reply"></div>
   </div>
-</li>
+</div>
+
+<% if comment.highlighted %>
+  <script>
+    $(document).ready(function() {
+      $("html").animate({
+        scrollTop: $("#comment_<%= comment.short_id %>").offset().top
+      });
+    });
+  </script>
+<% end %>

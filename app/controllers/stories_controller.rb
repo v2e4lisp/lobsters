@@ -1,26 +1,22 @@
 class StoriesController < ApplicationController
   before_filter :require_logged_in_user_or_400,
-    :only => [ :upvote, :downvote, :unvote, :preview ]
+    :only => [ :upvote, :unvote, :hide, :unhide, :preview ]
 
-  before_filter :require_logged_in_user, :only => [ :delete, :create, :edit,
+  before_filter :require_logged_in_user, :only => [ :destroy, :create, :edit,
     :fetch_url_title, :new ]
 
-  before_filter :find_user_story, :only => [ :destroy, :edit, :undelete, :update ]
+  before_filter :find_user_story, :only => [ :destroy, :edit, :undelete,
+    :update ]
 
   def create
     @title = "Submit Story"
     @cur_url = "/stories/new"
 
-    # we don't allow the url to be changed, so we have to set it manually
-    @story = Story.new(params[:story].reject{|k,v| k == "url" })
-    @story.url = params[:story][:url]
+    @story = Story.new(story_params)
     @story.user_id = @user.id
 
     if @story.valid? && !(@story.already_posted_story && !@story.seen_previous)
       if @story.save
-        Vote.vote_thusly_on_story_or_comment_for_user_because(1, @story.id,
-          nil, @user.id, nil)
-
         Countinual.count!("#{Rails.application.shortname}.stories.submitted",
           "+1")
 
@@ -38,7 +34,7 @@ class StoriesController < ApplicationController
     end
 
     @story.is_expired = true
-    @story.editor_user_id = @user.id
+    @story.editor = @user
 
     if params[:reason].present? && @story.user_id != @user.id
       @story.moderation_reason = params[:reason]
@@ -97,9 +93,7 @@ class StoriesController < ApplicationController
   end
 
   def preview
-    # we don't allow the url to be changed, so we have to set it manually
-    @story = Story.new(params[:story].reject{|k,v| k == "url" })
-    @story.url = params[:story][:url]
+    @story = Story.new(story_params)
     @story.user_id = @user.id
     @story.previewing = true
 
@@ -126,9 +120,18 @@ class StoriesController < ApplicationController
 
     @comments = @story.comments.includes(:user).arrange_for_user(@user)
 
+    if params[:comment_short_id]
+      @comments.each do |c,x|
+        if c.short_id == params[:comment_short_id]
+          c.highlighted = true
+          break
+        end
+      end
+    end
+
     respond_to do |format|
       format.html {
-        @comment = Comment.new
+        @comment = @story.comments.build
 
         load_user_votes
 
@@ -140,38 +143,6 @@ class StoriesController < ApplicationController
     end
   end
 
-  def show_comment
-    @story = Story.where(:short_id => params[:id]).first!
-
-    @title = @story.title
-
-    @showing_comment = Comment.where(:short_id => params[:comment_short_id]).first
-
-    if !@showing_comment
-      flash[:error] = "Could not find comment.  It may have been deleted."
-      return redirect_to @story.comments_url
-    end
-
-    @comments = @story.comments
-    if @showing_comment.thread_id
-      @comments = @comments.where(:thread_id => @showing_comment.thread_id)
-    end
-    @comments = @comments.includes(:user).arrange_for_user(@user)
-
-    @comments.each do |c,x|
-      if c.id == @showing_comment.id
-        c.highlighted = true
-        break
-      end
-    end
-
-    @comment = Comment.new
-
-    load_user_votes
-
-    render :action => "show"
-  end
-
   def undelete
     if !(@story.is_editable_by_user?(@user) &&
     @story.is_undeletable_by_user?(@user))
@@ -180,7 +151,7 @@ class StoriesController < ApplicationController
     end
 
     @story.is_expired = false
-    @story.editor_user_id = @user.id
+    @story.editor = @user
     @story.save(:validate => false)
 
     redirect_to @story.comments_url
@@ -193,11 +164,12 @@ class StoriesController < ApplicationController
     end
 
     @story.is_expired = false
-    @story.editor_user_id = @user.id
+    @story.editor = @user
 
-    @story.attributes = params[:story].except(:url)
     if @story.url_is_editable_by_user?(@user)
-      @story.url = params[:story][:url]
+      @story.attributes = story_params
+    else
+      @story.attributes = story_params.except(:url)
     end
 
     if @story.save
@@ -229,29 +201,51 @@ class StoriesController < ApplicationController
     render :text => "ok"
   end
 
-  def downvote
+  def hide
     if !(story = find_story)
       return render :text => "can't find story", :status => 400
     end
 
-    if !Vote::STORY_REASONS[params[:reason]]
-      return render :text => "invalid reason", :status => 400
+    Vote.vote_thusly_on_story_or_comment_for_user_because(0, story.id,
+      nil, @user.id, "H")
+
+    render :text => "ok"
+  end
+
+  def unhide
+    if !(story = find_story)
+      return render :text => "can't find story", :status => 400
     end
 
-    if !@user.can_downvote?
-      return render :text => "not permitted to downvote", :status => 400
-    end
-
-    Vote.vote_thusly_on_story_or_comment_for_user_because(-1, story.id,
-      nil, @user.id, params[:reason])
+    Vote.vote_thusly_on_story_or_comment_for_user_because(0, story.id,
+      nil, @user.id, nil)
 
     render :text => "ok"
   end
 
 private
 
+  def story_params
+    p = params.require(:story).permit(
+      :title, :url, :description, :moderation_reason, :seen_previous,
+      :tags_a => [],
+    )
+
+    if @user.is_moderator?
+      p
+    else
+      p.except(:moderation_reason)
+    end
+  end
+
   def find_story
-    Story.where(:short_id => params[:story_id]).first
+    story = Story.where(:short_id => params[:story_id]).first
+    if @user && story
+      story.vote = Vote.where(:user_id => @user.id,
+        :story_id => story.id, :comment_id => nil).first.try(:vote)
+    end
+
+    story
   end
 
   def find_user_story

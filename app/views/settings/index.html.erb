@@ -6,7 +6,8 @@
     Account Settings
   </div>
 
-  <%= form_for @edit_user, :url => settings_url, :method => :post do |f| %>
+  <%= form_for @edit_user, :url => settings_url, :method => :post,
+  :html => { :id => "edit_user" } do |f| %>
     <%= error_messages_for f.object %>
 
     <div class="boxline">
@@ -49,6 +50,12 @@
         :class => "required" %>
       <%= f.text_field :pushover_device, :placeholder => "optional",
         :size => 15 %>
+    </div>
+
+    <div class="boxline">
+      <%= f.label :pushover_sound, "Pushover Sound:",
+        :class => "required" %>
+      <%= f.select :pushover_sound, Pushover.sounds.map{|k,v| [ v, k ] } %>
     </div>
 
     <div class="boxline">
@@ -121,7 +128,7 @@
     <div class="boxline">
       <%= f.label :pushover_messages, "Receive Pushover Alert:",
         :class => "required" %>
-      <%= f.check_box :pushover_replies %>
+      <%= f.check_box :pushover_messages %>
       <span class="hint">
         Requires user key entered above
       </span>
@@ -144,14 +151,14 @@
     </p>
 
     <div class="boxline">
-      <%= f.label :mailing_list_enabled, "Receive List E-mails:",
+      <%= f.label :mailing_list_mode, "Receive List E-mails:",
         :class => "required" %>
-      <%= f.check_box :mailing_list_enabled%>
+      <%= f.select :mailing_list_mode, [ [ "No e-mails", 0 ],
+        [ "All stories and comments", 1 ], [ "Only stories", 2 ] ] %>
     </div>
 
     <div class="boxline">
-      <%= f.label :pushover_messages, "List Address:",
-        :class => "required" %>
+      <label class="required">List Address:</label>
       <span>
       <tt><%= Rails.application.shortname %>-<%=
         @edit_user.mailing_list_token %>@<%= Rails.application.domain %></tt>
@@ -160,6 +167,33 @@
 
     <br>
     <%= f.submit "Save All Settings" %>
+  <% end %>
+
+  <br>
+  <br>
+
+  <%= form_for @edit_user, :url => delete_account_url, :method => :post,
+  :html => { :id => "delete_user" } do |f| %>
+    <div class="legend">
+      Delete Account
+    </div>
+
+    <p>
+    To permanently delete your account, verify your current password below.
+    Your account will be put into a deleted state, your comments will be marked
+    as deleted and no longer readable by any other users, and your private
+    messages will be deleted.  Your submitted stories will not be deleted.
+    Your username will remain reserved and will not be available to use on any
+    other account.
+    </p>
+
+    <div class="boxline">
+      <%= f.label :password, "Verify Password:", :class => "required" %>
+      <%= f.password_field :password, :size => 40, :autocomplete => "off" %>
+    </div>
+
+    <br>
+    <%= f.submit "Yes, Delete My Account" %>
   <% end %>
 
   <br>

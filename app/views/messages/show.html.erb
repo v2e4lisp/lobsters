@@ -13,6 +13,11 @@
     <div class="sublegend">
       Sent from <a href="/u/<%= @message.author.username %>"><%=
         @message.author.username %></a>
+      <% if @message.author.is_admin? %>
+        (administrator)
+      <% elsif @message.author.is_moderator? %>
+        (moderator)
+      <% end %>
       to
       <a href="/u/<%= @message.recipient.username %>"><%=
         @message.recipient.username %></a>
@@ -20,7 +25,7 @@
     </div>
   </div>
 
-  <div class="boxline">
+  <div class="boxline comment_text">
     <%= raw @message.linkified_body %>
   </div>
 
